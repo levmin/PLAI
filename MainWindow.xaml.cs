@@ -21,7 +21,22 @@ namespace PLAI
         {
             InitializeComponent();
             // Set the view model as DataContext for minimal MVVM
-            this.DataContext = new MainViewModel();
+            var vm = new MainViewModel();
+            this.DataContext = vm;
+
+            this.Loaded += (s, e) =>
+            {
+                try
+                {
+                    var provider = new Services.HardwareInfoProvider();
+                    // Call detection on the UI thread for simplicity; provider is fast and guarded.
+                    vm.RunDetectionAndSelection(provider);
+                }
+                catch
+                {
+                    // ensure no exception bubbles to the UI
+                }
+            };
         }
     }
 }

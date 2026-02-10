@@ -15,6 +15,7 @@ namespace PLAI.ViewModels
         private readonly HardwareDetectionService _hardwareDetectionService;
         private readonly ModelCatalogService _modelCatalogService;
         private readonly ModelDownloadService _modelDownloadService;
+        private readonly ISelectedModelStateStore _selectedModelStore = new InMemorySelectedModelStateStore();
 
         public MainViewModel()
         {
@@ -61,11 +62,41 @@ namespace PLAI.ViewModels
         public string SelectedModelName
         {
             get => _selectedModelName;
-            private set
+            set
             {
                 if (_selectedModelName != value)
                 {
                     _selectedModelName = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        private string _detectedHardwareSummary = "Detecting...";
+
+        public string DetectedHardwareSummary
+        {
+            get => _detectedHardwareSummary;
+            set
+            {
+                if (_detectedHardwareSummary != value)
+                {
+                    _detectedHardwareSummary = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        private string _selectionReason = string.Empty;
+
+        public string SelectionReason
+        {
+            get => _selectionReason;
+            set
+            {
+                if (_selectionReason != value)
+                {
+                    _selectionReason = value;
                     OnPropertyChanged();
                 }
             }
@@ -85,6 +116,89 @@ namespace PLAI.ViewModels
             };
 
             SelectedModel = ModelSelectionService.ChooseBestModel(capabilities, models);
+            // Persist fresh selection if available
+            if (SelectedModel != null)
+            {
+                try { _selectedModelStore.SaveSelectedModelId(SelectedModel.Name); } catch { }
+            }
+        }
+
+        private bool TryRestoreSelection()
+        {
+            try
+            {
+                if (!_selectedModelStore.TryLoadSelectedModelId(out var id) || string.IsNullOrEmpty(id))
+                {
+                    return false;
+                }
+
+                var models = _modelCatalogService.GetAllModels();
+                foreach (var m in models)
+                {
+                    if (m.Name == id)
+                    {
+                        SelectedModel = m;
+                        SelectedModelName = m.Name;
+                        SelectionReason = "Restored previous selection";
+                        DetectedHardwareSummary = "Hardware detection skipped (restored selection)";
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Perform detection using the provided hardware info provider and select a model accordingly.
+        /// This method catches exceptions and updates bindable properties with safe text on error.
+        /// </summary>
+        public void RunDetectionAndSelection(IHardwareInfoProvider provider)
+        {
+            if (provider is null)
+            {
+                DetectedHardwareSummary = "Unknown (no provider)";
+                SelectionReason = "Provider missing";
+                SelectedModelName = string.Empty;
+                return;
+            }
+
+            try
+            {
+                var info = provider.GetHardwareInfo();
+
+                DetectedHardwareSummary = $"RAM: {info.RamGb} GB (known: {info.IsRamKnown}), VRAM: {info.VramGb} GB (known: {info.IsVramKnown}), Discrete GPU: {info.HasDiscreteGpu}";
+
+                var capabilities = new HardwareCapabilities
+                {
+                    AvailableRamGb = info.RamGb,
+                    AvailableVramGb = info.IsVramKnown ? info.VramGb : 0.0
+                };
+
+                var models = _modelCatalogService.GetAllModels();
+                var chosen = ModelSelectionService.ChooseBestModel(capabilities, models);
+
+                if (chosen is null)
+                {
+                    SelectedModelName = string.Empty;
+                    SelectionReason = "No suitable model found for detected hardware.";
+                }
+                else
+                {
+                    SelectedModel = chosen;
+                    SelectionReason = $"Selected by capability match (RAM {capabilities.AvailableRamGb} GB, VRAM {capabilities.AvailableVramGb} GB).";
+                }
+            }
+            catch (System.Exception ex)
+            {
+                DetectedHardwareSummary = "Unknown (error)";
+                SelectedModelName = string.Empty;
+                SelectionReason = "Error during detection: " + ex.Message;
+            }
         }
 
         public string Title

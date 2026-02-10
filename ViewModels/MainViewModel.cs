@@ -9,7 +9,7 @@ namespace PLAI.ViewModels
 {
     public class MainViewModel : INotifyPropertyChanged
     {
-        private string _title = "PLAI - MVVM";
+        private string _title = "PLAI";
 
         // Placeholder services registered manually in the constructor
         private readonly HardwareDetectionService _hardwareDetectionService;

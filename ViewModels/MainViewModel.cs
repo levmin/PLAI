@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using PLAI.Services;
+using PLAI.Models;
 
 namespace PLAI.ViewModels
 {
@@ -19,6 +20,56 @@ namespace PLAI.ViewModels
             _hardwareDetectionService = new HardwareDetectionService();
             _modelCatalogService = new ModelCatalogService();
             _modelDownloadService = new ModelDownloadService();
+            // Wire up selection logic (read-only)
+            InitializeSelection();
+        }
+
+        // Selected model (read-only from the UI's perspective)
+        private ModelDescriptor? _selectedModel;
+
+        public ModelDescriptor? SelectedModel
+        {
+            get => _selectedModel;
+            private set
+            {
+                if (_selectedModel != value)
+                {
+                    _selectedModel = value;
+                    OnPropertyChanged();
+                    SelectedModelName = _selectedModel?.Name ?? string.Empty;
+                }
+            }
+        }
+
+        private string _selectedModelName = string.Empty;
+
+        public string SelectedModelName
+        {
+            get => _selectedModelName;
+            private set
+            {
+                if (_selectedModelName != value)
+                {
+                    _selectedModelName = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        // Perform read-only wiring: obtain catalog, select best model for a hypothetical capability set
+        // No IO, no async, no side-effects.
+        private void InitializeSelection()
+        {
+            var models = _modelCatalogService.GetAllModels();
+
+            // Example capabilities for selection - read-only values (no hardware calls)
+            var capabilities = new HardwareCapabilities
+            {
+                AvailableRamGb = 16.0,
+                AvailableVramGb = 8.0
+            };
+
+            SelectedModel = ModelSelectionService.ChooseBestModel(capabilities, models);
         }
 
         public string Title

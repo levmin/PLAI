@@ -1,4 +1,6 @@
+using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using PLAI.Services;
 using PLAI.Models;
@@ -22,6 +24,19 @@ namespace PLAI.ViewModels
             _modelDownloadService = new ModelDownloadService();
             // Wire up selection logic (read-only)
             InitializeSelection();
+
+#if DEBUG
+            try
+            {
+                var provider = new HardwareInfoProvider();
+                var info = provider.GetHardwareInfo();
+                Debug.WriteLine($"HardwareInfo: {info}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"HardwareInfoProvider threw: {ex}");
+            }
+#endif
         }
 
         // Selected model (read-only from the UI's perspective)

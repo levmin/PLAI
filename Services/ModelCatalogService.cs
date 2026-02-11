@@ -4,42 +4,40 @@ using PLAI.Models;
 
 namespace PLAI.Services
 {
-    // Hardcoded in-memory catalog for demonstration purposes
+    /// <summary>
+    /// Loads the model catalog from the embedded JSON manifest.
+    /// This is the sole authoritative source of models.
+    /// </summary>
     public class ModelCatalogService
     {
-        private readonly List<ModelDescriptor> _models = new()
+        private readonly List<ModelDescriptor> _models;
+
+        public ModelCatalogService()
         {
-            new ModelDescriptor
+            var manifest = EmbeddedModelCatalogLoader.LoadOrThrow();
+            _models = new List<ModelDescriptor>(manifest.Models.Count);
+
+            foreach (var m in manifest.Models)
             {
-                Name = "cpu-small",
-                SizeGb = 0.8,
-                IsGpuCapable = false,
-                Quantization = "fp32",
-                MinRamGb = 4.0,
-                MinVramGb = null,
-                DownloadUri = new Uri("https://example.com/models/cpu-small")
-            },
-            new ModelDescriptor
-            {
-                Name = "gpu-moderate",
-                SizeGb = 2.4,
-                IsGpuCapable = true,
-                Quantization = "int8",
-                MinRamGb = 8.0,
-                MinVramGb = 4.0,
-                DownloadUri = new Uri("https://example.com/models/gpu-moderate")
-            },
-            new ModelDescriptor
-            {
-                Name = "gpu-highmem",
-                SizeGb = 12.0,
-                IsGpuCapable = true,
-                Quantization = "int8",
-                MinRamGb = 16.0,
-                MinVramGb = 12.0,
-                DownloadUri = new Uri("https://example.com/models/gpu-highmem")
+                var isGpu = string.Equals(m.ComputeTarget, "gpu", StringComparison.OrdinalIgnoreCase);
+
+                _models.Add(new ModelDescriptor
+                {
+                    Id = m.Id,
+                    Name = m.Name,
+
+                    // The spreadsheet "Size" column is ignored by design.
+                    // Keep a constant value so selection semantics remain vram/ram-only.
+                    SizeGb = 0.0,
+
+                    IsGpuCapable = isGpu,
+                    Quantization = m.Quantization,
+                    MinRamGb = m.MinRamGb,
+                    MinVramGb = m.MinVramGb,
+                    DownloadUri = new Uri(m.DownloadUrl, UriKind.Absolute)
+                });
             }
-        };
+        }
 
         public IReadOnlyList<ModelDescriptor> GetAllModels()
         {

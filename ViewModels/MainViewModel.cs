@@ -2,6 +2,8 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using PLAI.Services;
 using PLAI.Models;
 
@@ -15,7 +17,12 @@ namespace PLAI.ViewModels
         private readonly HardwareDetectionService _hardwareDetectionService;
         private readonly ModelCatalogService _modelCatalogService;
         private readonly ModelDownloadService _modelDownloadService;
-        private readonly ISelectedModelStateStore _selectedModelStore = new InMemorySelectedModelStateStore();
+
+        // Persisted selected model id (package-local app storage).
+        private readonly ISelectedModelStateStore _selectedModelStore = new PackageLocalSelectedModelStateStore();
+
+        // Cancel downloads when the app/window is closing.
+        private readonly CancellationTokenSource _downloadCts = new();
 
         public MainViewModel()
         {
@@ -23,7 +30,9 @@ namespace PLAI.ViewModels
             _hardwareDetectionService = new HardwareDetectionService();
             _modelCatalogService = new ModelCatalogService();
             _modelDownloadService = new ModelDownloadService();
-            // Wire up selection logic (read-only)
+
+            // Startup wiring: attempt to restore the last selection; otherwise
+            // selection will be performed after hardware detection on window load.
             InitializeSelection();
 
 #if DEBUG
@@ -38,6 +47,11 @@ namespace PLAI.ViewModels
                 Debug.WriteLine($"HardwareInfoProvider threw: {ex}");
             }
 #endif
+        }
+
+        public void CancelDownloads()
+        {
+            try { _downloadCts.Cancel(); } catch { }
         }
 
         // Selected model (read-only from the UI's perspective)
@@ -102,25 +116,9 @@ namespace PLAI.ViewModels
             }
         }
 
-        // Perform read-only wiring: obtain catalog, select best model for a hypothetical capability set
-        // No IO, no async, no side-effects.
         private void InitializeSelection()
         {
-            var models = _modelCatalogService.GetAllModels();
-
-            // Example capabilities for selection - read-only values (no hardware calls)
-            var capabilities = new HardwareCapabilities
-            {
-                AvailableRamGb = 16.0,
-                AvailableVramGb = 8.0
-            };
-
-            SelectedModel = ModelSelectionService.ChooseBestModel(capabilities, models);
-            // Persist fresh selection if available
-            if (SelectedModel != null)
-            {
-                try { _selectedModelStore.SaveSelectedModelId(SelectedModel.Name); } catch { }
-            }
+            TryRestoreSelection();
         }
 
         private bool TryRestoreSelection()
@@ -132,10 +130,20 @@ namespace PLAI.ViewModels
                     return false;
                 }
 
+                // Startup recovery (mandatory):
+                // If model files are missing or incomplete, clear persisted selection and treat as first run.
+                if (!_modelDownloadService.IsModelComplete(id))
+                {
+                    _modelDownloadService.CleanupIncompleteModelArtifacts(id);
+
+                    try { _selectedModelStore.Clear(); } catch { }
+                    return false;
+                }
+
                 var models = _modelCatalogService.GetAllModels();
                 foreach (var m in models)
                 {
-                    if (m.Name == id)
+                    if (m.Id == id)
                     {
                         SelectedModel = m;
                         SelectedModelName = m.Name;
@@ -145,6 +153,9 @@ namespace PLAI.ViewModels
                     }
                 }
 
+                // Saved id no longer exists in catalog.
+                // Clear so next launch behaves as first run.
+                try { _selectedModelStore.Clear(); } catch { }
                 return false;
             }
             catch
@@ -154,11 +165,59 @@ namespace PLAI.ViewModels
         }
 
         /// <summary>
+        /// Perform detection and selection (frozen behavior) and then ensure the selected model is downloaded.
+        /// </summary>
+        public async Task RunDetectionSelectionAndEnsureModelAsync(IHardwareInfoProvider provider)
+        {
+            // Existing frozen detection/selection behavior.
+            RunDetectionAndSelection(provider);
+
+            var chosen = SelectedModel;
+            if (chosen is null)
+            {
+                return;
+            }
+
+            // If restored selection, model is already complete by contract check in TryRestoreSelection.
+            if (_modelDownloadService.IsModelComplete(chosen.Id))
+            {
+                return;
+            }
+
+            // Deterministic download contract:
+            // - download to temp file
+            // - atomic rename
+            // - on failure/cancel: clear persisted selection so next launch behaves as first run
+            bool ok = false;
+            try
+            {
+                ok = await _modelDownloadService.EnsureModelDownloadedAsync(chosen, _downloadCts.Token).ConfigureAwait(true);
+            }
+            catch
+            {
+                ok = false;
+            }
+
+            if (!ok)
+            {
+                try { _selectedModelStore.Clear(); } catch { }
+            }
+        }
+
+        /// <summary>
         /// Perform detection using the provided hardware info provider and select a model accordingly.
         /// This method catches exceptions and updates bindable properties with safe text on error.
+        /// Selection semantics are frozen and must not change.
         /// </summary>
         public void RunDetectionAndSelection(IHardwareInfoProvider provider)
         {
+            // If a prior selection is available, keep it.
+            // First-run behavior is handled elsewhere (e.g. download completeness).
+            if (TryRestoreSelection())
+            {
+                return;
+            }
+
             if (provider is null)
             {
                 DetectedHardwareSummary = "Unknown (no provider)";
@@ -191,9 +250,11 @@ namespace PLAI.ViewModels
                 {
                     SelectedModel = chosen;
                     SelectionReason = $"Selected by capability match (RAM {capabilities.AvailableRamGb} GB, VRAM {capabilities.AvailableVramGb} GB).";
+
+                    try { _selectedModelStore.SaveSelectedModelId(chosen.Id); } catch { }
                 }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 DetectedHardwareSummary = "Unknown (error)";
                 SelectedModelName = string.Empty;

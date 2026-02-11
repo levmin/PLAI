@@ -1,0 +1,70 @@
+{
+  "manifestVersion": "1.0",
+  "generatedFrom": "Models.xlsx",
+  "generatedOn": "2026-02-10",
+  "models": [
+    {
+      "id": "phi-3_5-mini-instruct-cpu-int4-awq",
+      "name": "Phi-3.5-mini-instruct-onnx (cpu-int4-awq)",
+      "computeTarget": "cpu",
+      "minRamGb": 8,
+      "minVramGb": 0,
+      "quantization": "int4-awq",
+      "downloadUrl": "https://huggingface.co/microsoft/Phi-3.5-mini-instruct-onnx/tree/main/cpu_and_mobile/cpu-int4-awq-block-128-acc-level-4"
+    },
+    {
+      "id": "phi-3_5-mini-instruct-gpu-int4-awq",
+      "name": "Phi-3.5-mini-instruct-onnx (gpu-int4-awq)",
+      "computeTarget": "gpu",
+      "minRamGb": 8,
+      "minVramGb": 4,
+      "quantization": "int4-awq",
+      "downloadUrl": "https://huggingface.co/microsoft/Phi-3.5-mini-instruct-onnx/tree/main/gpu/gpu-int4-awq-block-128"
+    },
+    {
+      "id": "phi-4-mini-instruct-cpu-int4-rtn",
+      "name": "Phi-4-mini-instruct-onnx (cpu-int4-rtn)",
+      "computeTarget": "cpu",
+      "minRamGb": 16,
+      "minVramGb": 0,
+      "quantization": "int4-rtn",
+      "downloadUrl": "https://huggingface.co/microsoft/Phi-4-mini-instruct-onnx/tree/main/cpu_and_mobile/cpu-int4-rtn-block-32-acc-level-4"
+    },
+    {
+      "id": "phi-4-mini-instruct-gpu-int4-rtn",
+      "name": "Phi-4-mini-instruct-onnx (gpu-int4-rtn)",
+      "computeTarget": "gpu",
+      "minRamGb": 16,
+      "minVramGb": 6,
+      "quantization": "int4-rtn",
+      "downloadUrl": "https://huggingface.co/microsoft/Phi-4-mini-instruct-onnx/tree/main/gpu/gpu-int4-rtn-block-32"
+    },
+    {
+      "id": "phi-4-base-base-cpu-int4-rtn",
+      "name": "Phi-4-onnx (cpu-int4-rtn)",
+      "computeTarget": "cpu",
+      "minRamGb": 32,
+      "minVramGb": 0,
+      "quantization": "int4-rtn",
+      "downloadUrl": "https://huggingface.co/microsoft/phi-4-onnx/tree/main/cpu_and_mobile/cpu-int4-rtn-block-32-acc-level-4"
+    },
+    {
+      "id": "phi-4-base-base-gpu-int4-rtn",
+      "name": "Phi-4-onnx (gpu-int4-rtn)",
+      "computeTarget": "gpu",
+      "minRamGb": 32,
+      "minVramGb": 12,
+      "quantization": "int4-rtn",
+      "downloadUrl": "https://huggingface.co/microsoft/phi-4-onnx/tree/main/gpu/gpu-int4-rtn-block-32"
+    },
+    {
+      "id": "gpt-oss-20b-base-gpu-q4f16-mxfp4",
+      "name": "gpt-oss-20b-ONNX",
+      "computeTarget": "gpu",
+      "minRamGb": 32,
+      "minVramGb": 16,
+      "quantization": "q4f16-mxfp4",
+      "downloadUrl": "https://huggingface.co/onnx-community/gpt-oss-20b-ONNX"
+    }
+  ]
+}

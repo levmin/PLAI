@@ -40,7 +40,7 @@
       "downloadUrl": "https://huggingface.co/microsoft/Phi-4-mini-instruct-onnx/tree/main/gpu/gpu-int4-rtn-block-32"
     },
     {
-      "id": "phi-4-base-base-cpu-int4-rtn",
+      "id": "phi-4-base-cpu-int4-rtn",
       "name": "Phi-4-onnx (cpu-int4-rtn)",
       "computeTarget": "cpu",
       "minRamGb": 32,
@@ -49,7 +49,7 @@
       "downloadUrl": "https://huggingface.co/microsoft/phi-4-onnx/tree/main/cpu_and_mobile/cpu-int4-rtn-block-32-acc-level-4"
     },
     {
-      "id": "phi-4-base-base-gpu-int4-rtn",
+      "id": "phi-4-base-gpu-int4-rtn",
       "name": "Phi-4-onnx (gpu-int4-rtn)",
       "computeTarget": "gpu",
       "minRamGb": 32,

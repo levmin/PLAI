@@ -26,7 +26,6 @@ namespace PLAI.ViewModels
 
         public MainViewModel()
         {
-            try { AppLogger.Info("Startup"); } catch { }
             // Manual registration of services (no DI framework)
             _hardwareDetectionService = new HardwareDetectionService();
             _modelCatalogService = new ModelCatalogService();

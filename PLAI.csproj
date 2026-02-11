@@ -1,17 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <OutputType>WinExe</OutputType>
-        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
-        <Nullable>enable</Nullable>
-        <UseWPF>true</UseWPF>
-        <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
-    </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <!-- Deterministic, reviewable model catalog (single source of truth) -->
-        <EmbeddedResource Include="Data\ModelCatalog\ModelCatalog.manifest.json"
-                          LogicalName="PLAI.ModelCatalog.manifest.json" />
-    </ItemGroup>
+  <ItemGroup>
+    <!-- Deterministic, reviewable model catalog (single source of truth) -->
+    <EmbeddedResource Include="Data\ModelCatalog\ModelCatalog.manifest.json" LogicalName="PLAI.ModelCatalog.manifest.json" />
+  </ItemGroup>
 
 </Project>

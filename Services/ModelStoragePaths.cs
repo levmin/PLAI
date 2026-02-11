@@ -9,6 +9,7 @@ namespace PLAI.Services
         public const string ModelsRootFolderName = "Models";
         public const string ModelFileName = "model.onnx";
         public const string TempDownloadFileName = "model.onnx.download";
+        public const string LogFileName = "log.txt";
 
         public static string GetModelsRootPath()
         {
@@ -36,6 +37,13 @@ namespace PLAI.Services
         public static string GetTempModelPath(string modelId)
         {
             return Path.Combine(GetModelFolderPath(modelId), TempDownloadFileName);
+        }
+
+        public static string GetLogFilePath()
+        {
+            // Mandatory: LocalState/log.txt (same root as Models folder)
+            var root = ApplicationData.Current.LocalFolder.Path;
+            return Path.Combine(root, LogFileName);
         }
     }
 }

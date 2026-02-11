@@ -26,6 +26,7 @@ namespace PLAI.ViewModels
 
         public MainViewModel()
         {
+            try { AppLogger.Info("Startup"); } catch { }
             // Manual registration of services (no DI framework)
             _hardwareDetectionService = new HardwareDetectionService();
             _modelCatalogService = new ModelCatalogService();
@@ -134,9 +135,11 @@ namespace PLAI.ViewModels
                 // If model files are missing or incomplete, clear persisted selection and treat as first run.
                 if (!_modelDownloadService.IsModelComplete(id))
                 {
+                    try { AppLogger.Warn($"Missing model detected at startup (id {id})"); } catch { }
                     _modelDownloadService.CleanupIncompleteModelArtifacts(id);
 
                     try { _selectedModelStore.Clear(); } catch { }
+                    try { AppLogger.Info($"Persisted selection cleared (id {id})"); } catch { }
                     return false;
                 }
 
@@ -156,6 +159,7 @@ namespace PLAI.ViewModels
                 // Saved id no longer exists in catalog.
                 // Clear so next launch behaves as first run.
                 try { _selectedModelStore.Clear(); } catch { }
+                try { AppLogger.Info($"Persisted selection cleared (id {id})"); } catch { }
                 return false;
             }
             catch
@@ -201,6 +205,7 @@ namespace PLAI.ViewModels
             if (!ok)
             {
                 try { _selectedModelStore.Clear(); } catch { }
+                try { AppLogger.Info($"Persisted selection cleared (id {chosen.Id})"); } catch { }
             }
         }
 
@@ -249,6 +254,7 @@ namespace PLAI.ViewModels
                 else
                 {
                     SelectedModel = chosen;
+                    try { AppLogger.Info($"Selected model {chosen.Id}"); } catch { }
                     SelectionReason = $"Selected by capability match (RAM {capabilities.AvailableRamGb} GB, VRAM {capabilities.AvailableVramGb} GB).";
 
                     try { _selectedModelStore.SaveSelectedModelId(chosen.Id); } catch { }

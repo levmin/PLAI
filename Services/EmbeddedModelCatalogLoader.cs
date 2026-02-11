@@ -16,6 +16,7 @@ namespace PLAI.Services
             using var stream = asm.GetManifestResourceStream(ResourceName);
             if (stream is null)
             {
+                try { AppLogger.Error("Manifest load failure (embedded resource missing)"); } catch { }
                 throw new InvalidOperationException(
                     $"Embedded model manifest '{ResourceName}' was not found. " +
                     "Ensure Data\\ModelCatalog\\ModelCatalog.manifest.json is marked as EmbeddedResource.");
@@ -68,10 +69,13 @@ namespace PLAI.Services
                     _ = new Uri(m.DownloadUrl, UriKind.Absolute);
                 }
 
+                try { AppLogger.Info("Manifest loaded successfully"); } catch { }
+
                 return manifest;
             }
             catch (Exception ex) when (ex is not InvalidOperationException)
             {
+                try { AppLogger.Error("Manifest load failure"); } catch { }
                 throw new InvalidOperationException("Failed to load embedded model manifest.", ex);
             }
         }

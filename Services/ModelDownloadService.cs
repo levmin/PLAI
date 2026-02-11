@@ -55,8 +55,12 @@ namespace PLAI.Services
             {
                 // Opportunistic cleanup of stray temp file, if any.
                 TryDeleteTempAndEmptyFolder(model.Id);
+                try { AppLogger.Info($"Download completed successfully (id {model.Id})"); } catch { }
+
                 return true;
             }
+
+            try { AppLogger.Info($"Download started (id {model.Id})"); } catch { }
 
             var modelFolder = ModelStoragePaths.GetModelFolderPath(model.Id);
             var finalPath = ModelStoragePaths.GetFinalModelPath(model.Id);
@@ -118,6 +122,7 @@ namespace PLAI.Services
             catch (OperationCanceledException)
             {
                 // Cancel: required cleanup + false
+                try { AppLogger.Warn($"Download cancelled (id {model.Id})"); } catch { }
                 TryDeleteFile(tempPath);
                 TryDeleteEmptyFolder(modelFolder);
                 return false;
@@ -125,6 +130,7 @@ namespace PLAI.Services
             catch
             {
                 // Failure: required cleanup + false
+                try { AppLogger.Error($"Download failed (id {model.Id})"); } catch { }
                 TryDeleteFile(tempPath);
                 TryDeleteEmptyFolder(modelFolder);
                 return false;

@@ -6,6 +6,10 @@ namespace PLAI.Models
         // Stable synthetic id persisted as-is.
         public string Id { get; set; } = default!;
 
+        // Compute target from manifest ("cpu" or "gpu").
+        // Stored for transparency/UI only; selection semantics remain unchanged.
+        public string ComputeTarget { get; set; } = default!;
+
         // Human-readable name for display.
         public string Name { get; set; } = default!;
 

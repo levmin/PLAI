@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <!-- Deterministic, reviewable model catalog (single source of truth) -->
-    <EmbeddedResource Include="Data\ModelCatalog\ModelCatalog.manifest.json" LogicalName="PLAI.ModelCatalog.manifest.json" />
+    <EmbeddedResource Include="Data\ModelCatalog\ModelCatalog.manifest.json"
+                      LogicalName="PLAI.ModelCatalog.manifest.json" />
   </ItemGroup>
-
 </Project>

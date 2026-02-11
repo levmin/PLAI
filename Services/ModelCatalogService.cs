@@ -24,6 +24,7 @@ namespace PLAI.Services
                 _models.Add(new ModelDescriptor
                 {
                     Id = m.Id,
+                    ComputeTarget = m.ComputeTarget,
                     Name = m.Name,
 
                     // The spreadsheet "Size" column is ignored by design.

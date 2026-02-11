@@ -6,6 +6,43 @@
         <TextBlock Text="{Binding DetectedHardwareSummary, Mode=OneWay, TargetNullValue=''}" FontSize="14" Margin="0,0,0,8" />
         <TextBlock Text="{Binding SelectedModelName, Mode=OneWay, TargetNullValue=''}" FontSize="16" Margin="0,0,0,8" />
         <TextBlock Text="{Binding SelectionReason, Mode=OneWay, TargetNullValue=''}" FontSize="12" Margin="0,0,0,8" />
+
+        <!-- Read-only transparency panel. Default collapsed. No behavior changes. -->
+        <Expander Header="Model Info" IsExpanded="False" Margin="0,0,0,8">
+            <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Model ID:" Margin="0,0,12,6" />
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedModel.Id, Mode=OneWay, TargetNullValue=''}" TextWrapping="Wrap" />
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Compute Target:" Margin="0,0,12,6" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedModel.ComputeTarget, Mode=OneWay, TargetNullValue=''}" />
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Min RAM (GB):" Margin="0,0,12,6" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedModel.MinRamGb, Mode=OneWay, TargetNullValue=''}" />
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Min VRAM (GB):" Margin="0,0,12,6" />
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedModel.MinVramGb, Mode=OneWay, TargetNullValue=''}" />
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Quantization:" Margin="0,0,12,6" />
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedModel.Quantization, Mode=OneWay, TargetNullValue=''}" />
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Download URL:" Margin="0,0,12,0" />
+                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedModel.DownloadUri, Mode=OneWay, TargetNullValue=''}" TextWrapping="Wrap" />
+            </Grid>
+        </Expander>
+
         <Button Content="Click" Width="120" Height="32" />
     </StackPanel>
 </Window>

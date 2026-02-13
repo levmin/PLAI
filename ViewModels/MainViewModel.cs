@@ -1,280 +1,136 @@
 using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using PLAI.Services;
+using System.Windows;
 using PLAI.Models;
+using PLAI.Services;
 
 namespace PLAI.ViewModels
 {
-    public class MainViewModel : INotifyPropertyChanged
+    public sealed class MainViewModel : INotifyPropertyChanged
     {
-        private string _title = "PLAI";
+        private readonly ModelCatalogService _catalogService = new ModelCatalogService();
+        
+        private readonly ModelDownloadService _downloadService = new ModelDownloadService();
+        // Lazily created so that missing native prerequisites for ORT GenAI don't prevent the app UI from starting.
+        private GenAiInferenceService? _inferenceService;
+        private readonly ISelectedModelStateStore _stateStore = new PackageLocalSelectedModelStateStore();
 
-        // Placeholder services registered manually in the constructor
-        private readonly HardwareDetectionService _hardwareDetectionService;
-        private readonly ModelCatalogService _modelCatalogService;
-        private readonly ModelDownloadService _modelDownloadService;
+        private CancellationTokenSource? _startupCts;
+        private CancellationTokenSource? _generationCts;
 
-        // Persisted selected model id (package-local app storage).
-        private readonly ISelectedModelStateStore _selectedModelStore = new PackageLocalSelectedModelStateStore();
-
-        // Cancel downloads when the app/window is closing.
-        private readonly CancellationTokenSource _downloadCts = new();
-
-        public MainViewModel()
-        {
-            // Manual registration of services (no DI framework)
-            _hardwareDetectionService = new HardwareDetectionService();
-            _modelCatalogService = new ModelCatalogService();
-            _modelDownloadService = new ModelDownloadService();
-
-            // Startup wiring: attempt to restore the last selection; otherwise
-            // selection will be performed after hardware detection on window load.
-            InitializeSelection();
-
-#if DEBUG
-            try
-            {
-                var provider = new HardwareInfoProvider();
-                var info = provider.GetHardwareInfo();
-                Debug.WriteLine($"HardwareInfo: {info}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"HardwareInfoProvider threw: {ex}");
-            }
-#endif
-        }
-
-        public void CancelDownloads()
-        {
-            try { _downloadCts.Cancel(); } catch { }
-        }
-
-        // Selected model (read-only from the UI's perspective)
+        private HardwareInfo? _hardwareInfo;
         private ModelDescriptor? _selectedModel;
+        private string _detectedHardwareSummary = "Not yet detected.";
+        private string _selectionReason = "Not yet selected.";
+
+        private string _statusText = "Idle";
+        private bool _isStartupBusy;
+        private bool _isGenerating;
+        private double _downloadProgressPercent;
+        private bool _isDownloadProgressIndeterminate;
+        private string _downloadDetail = string.Empty;
+
+        private string _userInputText = string.Empty;
+
+        public ObservableCollection<ChatMessage> Messages { get; } = new();
+
+        public HardwareInfo? HardwareInfo
+        {
+            get => _hardwareInfo;
+            private set { _hardwareInfo = value; OnPropertyChanged(); }
+        }
 
         public ModelDescriptor? SelectedModel
         {
             get => _selectedModel;
-            private set
-            {
-                if (_selectedModel != value)
-                {
-                    _selectedModel = value;
-                    OnPropertyChanged();
-                    SelectedModelName = _selectedModel?.Name ?? string.Empty;
-                }
-            }
+            private set { _selectedModel = value; OnPropertyChanged(); }
         }
-
-        private string _selectedModelName = string.Empty;
-
-        public string SelectedModelName
-        {
-            get => _selectedModelName;
-            set
-            {
-                if (_selectedModelName != value)
-                {
-                    _selectedModelName = value;
-                    OnPropertyChanged();
-                }
-            }
-        }
-
-        private string _detectedHardwareSummary = "Detecting...";
 
         public string DetectedHardwareSummary
         {
             get => _detectedHardwareSummary;
-            set
-            {
-                if (_detectedHardwareSummary != value)
-                {
-                    _detectedHardwareSummary = value;
-                    OnPropertyChanged();
-                }
-            }
+            private set { _detectedHardwareSummary = value; OnPropertyChanged(); }
         }
-
-        private string _selectionReason = string.Empty;
 
         public string SelectionReason
         {
             get => _selectionReason;
-            set
+            private set { _selectionReason = value; OnPropertyChanged(); }
+        }
+
+        public string StatusText
+        {
+            get => _statusText;
+            private set { _statusText = value; OnPropertyChanged(); }
+        }
+
+        public bool IsStartupBusy
+        {
+            get => _isStartupBusy;
+            private set
             {
-                if (_selectionReason != value)
+                if (_isStartupBusy != value)
                 {
-                    _selectionReason = value;
+                    _isStartupBusy = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsCancelVisible));
+                    OnPropertyChanged(nameof(IsInputEnabled));
                 }
             }
         }
 
-        private void InitializeSelection()
+        public bool IsGenerating
         {
-            TryRestoreSelection();
-        }
-
-        private bool TryRestoreSelection()
-        {
-            try
+            get => _isGenerating;
+            private set
             {
-                if (!_selectedModelStore.TryLoadSelectedModelId(out var id) || string.IsNullOrEmpty(id))
+                if (_isGenerating != value)
                 {
-                    return false;
+                    _isGenerating = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsCancelVisible));
+                    OnPropertyChanged(nameof(IsInputEnabled));
                 }
-
-                // Startup recovery (mandatory):
-                // If model files are missing or incomplete, clear persisted selection and treat as first run.
-                if (!_modelDownloadService.IsModelComplete(id))
-                {
-                    try { AppLogger.Warn($"Missing model detected at startup (id {id})"); } catch { }
-                    _modelDownloadService.CleanupIncompleteModelArtifacts(id);
-
-                    try { _selectedModelStore.Clear(); } catch { }
-                    try { AppLogger.Info($"Persisted selection cleared (id {id})"); } catch { }
-                    return false;
-                }
-
-                var models = _modelCatalogService.GetAllModels();
-                foreach (var m in models)
-                {
-                    if (m.Id == id)
-                    {
-                        SelectedModel = m;
-                        SelectedModelName = m.Name;
-                        SelectionReason = "Restored previous selection";
-                        DetectedHardwareSummary = "Hardware detection skipped (restored selection)";
-                        return true;
-                    }
-                }
-
-                // Saved id no longer exists in catalog.
-                // Clear so next launch behaves as first run.
-                try { _selectedModelStore.Clear(); } catch { }
-                try { AppLogger.Info($"Persisted selection cleared (id {id})"); } catch { }
-                return false;
-            }
-            catch
-            {
-                return false;
             }
         }
 
-        /// <summary>
-        /// Perform detection and selection (frozen behavior) and then ensure the selected model is downloaded.
-        /// </summary>
-        public async Task RunDetectionSelectionAndEnsureModelAsync(IHardwareInfoProvider provider)
+        public bool IsChatReady { get; private set; }
+
+        public bool IsInputEnabled => IsChatReady && !IsStartupBusy && !IsGenerating;
+
+        public bool IsCancelVisible => IsStartupBusy || IsGenerating;
+
+        public double DownloadProgressPercent
         {
-            // Existing frozen detection/selection behavior.
-            RunDetectionAndSelection(provider);
-
-            var chosen = SelectedModel;
-            if (chosen is null)
-            {
-                return;
-            }
-
-            // If restored selection, model is already complete by contract check in TryRestoreSelection.
-            if (_modelDownloadService.IsModelComplete(chosen.Id))
-            {
-                return;
-            }
-
-            // Deterministic download contract:
-            // - download to temp file
-            // - atomic rename
-            // - on failure/cancel: clear persisted selection so next launch behaves as first run
-            bool ok = false;
-            try
-            {
-                ok = await _modelDownloadService.EnsureModelDownloadedAsync(chosen, _downloadCts.Token).ConfigureAwait(true);
-            }
-            catch
-            {
-                ok = false;
-            }
-
-            if (!ok)
-            {
-                try { _selectedModelStore.Clear(); } catch { }
-                try { AppLogger.Info($"Persisted selection cleared (id {chosen.Id})"); } catch { }
-            }
+            get => _downloadProgressPercent;
+            private set { _downloadProgressPercent = value; OnPropertyChanged(); }
         }
 
-        /// <summary>
-        /// Perform detection using the provided hardware info provider and select a model accordingly.
-        /// This method catches exceptions and updates bindable properties with safe text on error.
-        /// Selection semantics are frozen and must not change.
-        /// </summary>
-        public void RunDetectionAndSelection(IHardwareInfoProvider provider)
+        public bool IsDownloadProgressIndeterminate
         {
-            // If a prior selection is available, keep it.
-            // First-run behavior is handled elsewhere (e.g. download completeness).
-            if (TryRestoreSelection())
-            {
-                return;
-            }
-
-            if (provider is null)
-            {
-                DetectedHardwareSummary = "Unknown (no provider)";
-                SelectionReason = "Provider missing";
-                SelectedModelName = string.Empty;
-                return;
-            }
-
-            try
-            {
-                var info = provider.GetHardwareInfo();
-
-                DetectedHardwareSummary = $"RAM: {info.RamGb} GB (known: {info.IsRamKnown}), VRAM: {info.VramGb} GB (known: {info.IsVramKnown}), Discrete GPU: {info.HasDiscreteGpu}";
-
-                var capabilities = new HardwareCapabilities
-                {
-                    AvailableRamGb = info.RamGb,
-                    AvailableVramGb = info.IsVramKnown ? info.VramGb : 0.0
-                };
-
-                var models = _modelCatalogService.GetAllModels();
-                var chosen = ModelSelectionService.ChooseBestModel(capabilities, models);
-
-                if (chosen is null)
-                {
-                    SelectedModelName = string.Empty;
-                    SelectionReason = "No suitable model found for detected hardware.";
-                }
-                else
-                {
-                    SelectedModel = chosen;
-                    try { AppLogger.Info($"Selected model {chosen.Id}"); } catch { }
-                    SelectionReason = $"Selected by capability match (RAM {capabilities.AvailableRamGb} GB, VRAM {capabilities.AvailableVramGb} GB).";
-
-                    try { _selectedModelStore.SaveSelectedModelId(chosen.Id); } catch { }
-                }
-            }
-            catch (Exception ex)
-            {
-                DetectedHardwareSummary = "Unknown (error)";
-                SelectedModelName = string.Empty;
-                SelectionReason = "Error during detection: " + ex.Message;
-            }
+            get => _isDownloadProgressIndeterminate;
+            private set { _isDownloadProgressIndeterminate = value; OnPropertyChanged(); }
         }
 
-        public string Title
+        public string DownloadDetail
         {
-            get => _title;
+            get => _downloadDetail;
+            private set { _downloadDetail = value; OnPropertyChanged(); }
+        }
+
+        public string UserInputText
+        {
+            get => _userInputText;
             set
             {
-                if (_title != value)
+                if (_userInputText != value)
                 {
-                    _title = value;
+                    _userInputText = value;
                     OnPropertyChanged();
                 }
             }
@@ -282,9 +138,331 @@ namespace PLAI.ViewModels
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        public async Task StartupAsync(IHardwareInfoProvider hardwareProvider)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            _startupCts?.Cancel();
+            _startupCts?.Dispose();
+            _startupCts = new CancellationTokenSource();
+
+            var ct = _startupCts.Token;
+
+            IsStartupBusy = true;
+            StatusText = "Detecting hardware and selecting model...";
+            DownloadProgressPercent = 0;
+            IsDownloadProgressIndeterminate = true;
+            DownloadDetail = string.Empty;
+
+            try
+            {
+                await Task.Yield();
+
+                RunDetectionAndSelection(hardwareProvider);
+
+                if (SelectedModel is null)
+                {
+                    StatusText = "No compatible model. Exiting.";
+                    MessageBox.Show("No compatible model was found for this system.\n\nPLAI will exit.", "PLAI", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Application.Current.Shutdown();
+                    return;
+                }
+
+                var modelId = SelectedModel.Id;
+
+                if (!_downloadService.IsModelReadyForInference(modelId))
+                {
+                    InformUserAboutSelection(SelectedModel);
+
+                    StatusText = "Downloading model files...";
+                    IsDownloadProgressIndeterminate = true;
+
+                    var progress = new Progress<ModelDownloadProgress>(p =>
+                    {
+                        DownloadDetail = $"{p.Stage}: {p.CurrentFile ?? string.Empty}".Trim();
+
+                        var frac = p.GetOverallFraction();
+                        if (frac.HasValue)
+                        {
+                            IsDownloadProgressIndeterminate = false;
+                            DownloadProgressPercent = Math.Clamp(frac.Value * 100.0, 0.0, 100.0);
+                        }
+                        else
+                        {
+                            IsDownloadProgressIndeterminate = true;
+                            DownloadProgressPercent = 0;
+                        }
+                    });
+
+                    var ok = await _downloadService.EnsureModelDownloadedAsync(SelectedModel, progress, ct).ConfigureAwait(true);
+                    if (!ok)
+                    {
+                        // Deterministic cleanup: clear persisted selection and exit.
+                        _stateStore.Clear();
+                        StatusText = "Download cancelled or failed. Exiting.";
+                        MessageBox.Show("Model download did not complete.\n\nPLAI will exit.", "PLAI", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        Application.Current.Shutdown();
+                        return;
+                    }
+                }
+
+                // Load + warmup.
+                StatusText = "Loading model...";
+                var modelFolder = ModelStoragePaths.GetModelFolderPath(modelId);
+                _inferenceService ??= new GenAiInferenceService();
+                await _inferenceService.LoadModelAsync(modelFolder, ct).ConfigureAwait(true);
+
+                StatusText = "Warming up model...";
+                await _inferenceService.WarmupAsync(ct).ConfigureAwait(true);
+
+                StatusText = "Ready.";
+                IsChatReady = true;
+                OnPropertyChanged(nameof(IsChatReady));
+                OnPropertyChanged(nameof(IsInputEnabled));
+            }
+            catch (OperationCanceledException)
+            {
+                // Deterministic cleanup on user cancel.
+                if (SelectedModel is not null)
+                {
+                    _downloadService.CleanupIncompleteModelArtifacts(SelectedModel.Id);
+                }
+                _stateStore.Clear();
+                StatusText = "Cancelled. Exiting.";
+                Application.Current.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                try { AppLogger.Error($"Startup failed: {ex.Message}"); } catch { }
+
+                if (SelectedModel is not null)
+                {
+                    _downloadService.CleanupIncompleteModelArtifacts(SelectedModel.Id);
+                }
+                _stateStore.Clear();
+
+                StatusText = "Startup failed. Exiting.";
+                MessageBox.Show($"Startup failed:\n\n{ex.Message}\n\nPLAI will exit.", "PLAI", MessageBoxButton.OK, MessageBoxImage.Error);
+                Application.Current.Shutdown();
+            }
+            finally
+            {
+                IsStartupBusy = false;
+            }
         }
+
+        public void CancelCurrentOperation()
+        {
+            try
+            {
+                _generationCts?.Cancel();
+                _startupCts?.Cancel();
+            }
+            catch { }
+        }
+
+        public void Shutdown()
+        {
+            try { CancelCurrentOperation(); } catch { }
+
+            try { _generationCts?.Dispose(); } catch { }
+            _generationCts = null;
+
+            try { _startupCts?.Dispose(); } catch { }
+            _startupCts = null;
+
+            try { _inferenceService?.Dispose(); } catch { }
+            _inferenceService = null;
+        }
+
+
+        public async Task SendUserMessageAsync()
+        {
+            if (!IsInputEnabled) return;
+
+            var text = (UserInputText ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            UserInputText = string.Empty;
+
+            var userMsg = new ChatMessage(ChatRole.User, text);
+            Messages.Add(userMsg);
+
+            var assistantMsg = new ChatMessage(ChatRole.Assistant, string.Empty);
+            Messages.Add(assistantMsg);
+
+            IsGenerating = true;
+
+            _generationCts?.Cancel();
+            _generationCts?.Dispose();
+            _generationCts = new CancellationTokenSource();
+
+            try
+            {
+                var prompt = BuildPhiPromptFromConversation(Messages, ignoreLastAssistantIfEmpty: true);
+
+                var chunkProgress = new Progress<string>(chunk =>
+                {
+                    assistantMsg.Content += chunk;
+                });
+
+                // Keep deterministic generation for now (greedy).
+                if (_inferenceService is null)
+                {
+                    throw new InvalidOperationException("Model is not loaded.");
+                }
+
+                var svc = _inferenceService ?? throw new InvalidOperationException("Inference service is not initialized.");
+
+                _ = await svc.GenerateAsync(
+                    prompt: prompt,
+                    maxLength: 1024,
+                    doSample: false,
+                    onTextChunk: chunkProgress,
+                    cancellationToken: _generationCts.Token).ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+                assistantMsg.Content += "\n\n[Cancelled]";
+            }
+            catch (Exception ex)
+            {
+                assistantMsg.Content += $"\n\n[Error: {ex.Message}]";
+            }
+            finally
+            {
+                IsGenerating = false;
+            }
+        }
+
+        private void RunDetectionAndSelection(IHardwareInfoProvider provider)
+        {
+            // If persisted state exists and model is present, skip detection/selection (v1 behavior).
+            if (TryRestoreSelection())
+            {
+                DetectedHardwareSummary = "Hardware detection skipped (restored selection).";
+                return;
+            }
+
+            HardwareInfo = provider.GetHardwareInfo();
+
+            DetectedHardwareSummary =
+                $"RAM: {HardwareInfo.RamGb:0.0} GB (known: {HardwareInfo.IsRamKnown}), " +
+                $"VRAM: {(HardwareInfo.IsVramKnown ? HardwareInfo.VramGb.ToString("0.0") : "N/A")} GB (known: {HardwareInfo.IsVramKnown}), " +
+                $"Discrete GPU: {HardwareInfo.HasDiscreteGpu}";
+
+            var capabilities = new HardwareCapabilities
+            {
+                AvailableRamGb = HardwareInfo.RamGb,
+                AvailableVramGb = HardwareInfo.IsVramKnown ? HardwareInfo.VramGb : 0.0
+            };
+
+            var models = _catalogService.GetAllModels();
+            var chosen = ModelSelectionService.ChooseBestModel(capabilities, models);
+
+            SelectedModel = chosen;
+
+            if (chosen is null)
+            {
+                SelectionReason = "No suitable model found for detected hardware.";
+            }
+            else
+            {
+                try { AppLogger.Info($"Selected model {chosen.Id}"); } catch { }
+                SelectionReason =
+                    $"Selected by capability match (RAM {capabilities.AvailableRamGb:0.0} GB, VRAM {capabilities.AvailableVramGb:0.0} GB).";
+
+                _stateStore.SaveSelectedModelId(chosen.Id);
+            }
+        }
+
+
+        private bool TryRestoreSelection()
+        {
+            if (!_stateStore.TryLoadSelectedModelId(out var savedId) || string.IsNullOrWhiteSpace(savedId))
+                return false;
+
+            // Preserve v1 behavior: if the alias file is missing, treat as no state.
+            if (!_downloadService.IsModelComplete(savedId))
+            {
+                _stateStore.Clear();
+                return false;
+            }
+
+            var models = _catalogService.GetAllModels();
+            ModelDescriptor? restored = null;
+            foreach (var m in models)
+            {
+                if (string.Equals(m.Id, savedId, StringComparison.Ordinal))
+                {
+                    restored = m;
+                    break;
+                }
+            }
+
+            if (restored is null)
+            {
+                _stateStore.Clear();
+                return false;
+            }
+
+            SelectedModel = restored;
+            SelectionReason = "Restored previous selection (deterministic)";
+
+            return true;
+        }
+
+        private static void InformUserAboutSelection(ModelDescriptor selected)
+        {
+            var msg =
+                $"PLAI selected a model deterministically based on detected hardware.\n\n" +
+                $"Selected model:\n  {selected.Name}\n\n" +
+                $"The required model files will now be downloaded.\n\n" +
+                $"(No choices here — OK continues.)";
+
+            MessageBox.Show(msg, "PLAI", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private static string BuildPhiPromptFromConversation(ObservableCollection<ChatMessage> messages, bool ignoreLastAssistantIfEmpty)
+        {
+            // Phi chat format (minimal):
+            // <|user|>...<|end|><|assistant|>...<|end|> ... <|assistant|>
+            //
+            // During generation we keep a placeholder assistant message in the list; we must not serialize it as
+            // "<|assistant|><|end|>" or the model will see a completed assistant turn.
+
+            var sb = new StringBuilder();
+
+            int count = messages.Count;
+            int lastIndex = count - 1;
+
+            for (int i = 0; i < count; i++)
+            {
+                var m = messages[i];
+
+                if (ignoreLastAssistantIfEmpty && i == lastIndex && m.Role == ChatRole.Assistant && string.IsNullOrWhiteSpace(m.Content))
+                {
+                    // Skip placeholder.
+                    continue;
+                }
+
+                if (m.Role == ChatRole.User)
+                {
+                    sb.Append("<|user|>");
+                    sb.Append(m.Content);
+                    sb.Append("<|end|>");
+                }
+                else if (m.Role == ChatRole.Assistant)
+                {
+                    sb.Append("<|assistant|>");
+                    sb.Append(m.Content);
+                    sb.Append("<|end|>");
+                }
+            }
+
+            sb.Append("<|assistant|>");
+            return sb.ToString();
+        }
+
+        private void OnPropertyChanged([CallerMemberName] string? name = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }

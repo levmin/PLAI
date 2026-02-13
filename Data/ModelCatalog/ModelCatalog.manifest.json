@@ -1,11 +1,12 @@
 {
-  "manifestVersion": "1.0",
+  "manifestVersion": "1.1",
   "generatedFrom": "Models.xlsx",
-  "generatedOn": "2026-02-10",
+  "generatedOn": "2026-02-13",
   "models": [
     {
       "id": "phi-3_5-mini-instruct-cpu-int4-awq",
-      "name": "Phi-3.5-mini-instruct-onnx (cpu-int4-awq)",
+      "displayName": "Phi-3.5-mini",
+      "parametersBillions": 3.8,
       "computeTarget": "cpu",
       "minRamGb": 8,
       "minVramGb": 0,
@@ -14,7 +15,8 @@
     },
     {
       "id": "phi-3_5-mini-instruct-gpu-int4-awq",
-      "name": "Phi-3.5-mini-instruct-onnx (gpu-int4-awq)",
+      "displayName": "Phi-3.5-mini",
+      "parametersBillions": 3.8,
       "computeTarget": "gpu",
       "minRamGb": 8,
       "minVramGb": 4,
@@ -23,7 +25,8 @@
     },
     {
       "id": "phi-4-mini-instruct-cpu-int4-rtn",
-      "name": "Phi-4-mini-instruct-onnx (cpu-int4-rtn)",
+      "displayName": "Phi-4-mini",
+      "parametersBillions": 3.8,
       "computeTarget": "cpu",
       "minRamGb": 16,
       "minVramGb": 0,
@@ -32,7 +35,8 @@
     },
     {
       "id": "phi-4-mini-instruct-gpu-int4-rtn",
-      "name": "Phi-4-mini-instruct-onnx (gpu-int4-rtn)",
+      "displayName": "Phi-4-mini",
+      "parametersBillions": 3.8,
       "computeTarget": "gpu",
       "minRamGb": 16,
       "minVramGb": 6,
@@ -41,7 +45,8 @@
     },
     {
       "id": "phi-4-base-cpu-int4-rtn",
-      "name": "Phi-4-onnx (cpu-int4-rtn)",
+      "displayName": "Phi-4",
+      "parametersBillions": 14,
       "computeTarget": "cpu",
       "minRamGb": 32,
       "minVramGb": 0,
@@ -50,21 +55,13 @@
     },
     {
       "id": "phi-4-base-gpu-int4-rtn",
-      "name": "Phi-4-onnx (gpu-int4-rtn)",
+      "displayName": "Phi-4",
+      "parametersBillions": 14,
       "computeTarget": "gpu",
       "minRamGb": 32,
       "minVramGb": 12,
       "quantization": "int4-rtn",
       "downloadUrl": "https://huggingface.co/microsoft/phi-4-onnx/tree/main/gpu/gpu-int4-rtn-block-32"
-    },
-    {
-      "id": "gpt-oss-20b-base-gpu-q4f16-mxfp4",
-      "name": "gpt-oss-20b-ONNX",
-      "computeTarget": "gpu",
-      "minRamGb": 32,
-      "minVramGb": 16,
-      "quantization": "q4f16-mxfp4",
-      "downloadUrl": "https://huggingface.co/onnx-community/gpt-oss-20b-ONNX"
     }
   ]
 }

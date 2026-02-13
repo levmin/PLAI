@@ -1,48 +1,111 @@
-﻿<Window x:Class="PLAI.MainWindow"
+<Window x:Class="PLAI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="{Binding Title, FallbackValue=''}" Height="450" Width="800">
-    <StackPanel Margin="16">
-        <TextBlock Text="{Binding DetectedHardwareSummary, Mode=OneWay, TargetNullValue=''}" FontSize="14" Margin="0,0,0,8" />
-        <TextBlock Text="{Binding SelectedModelName, Mode=OneWay, TargetNullValue=''}" FontSize="16" Margin="0,0,0,8" />
-        <TextBlock Text="{Binding SelectionReason, Mode=OneWay, TargetNullValue=''}" FontSize="12" Margin="0,0,0,8" />
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:PLAI.ViewModels"
+        xmlns:models="clr-namespace:PLAI.Models"
+        mc:Ignorable="d"
+        Title="PLAI" Height="720" Width="1100" MinHeight="520" MinWidth="820">
 
-        <!-- Read-only transparency panel. Default collapsed. No behavior changes. -->
-        <Expander Header="Model Info" IsExpanded="False" Margin="0,0,0,8">
-            <Grid Margin="0,8,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Model ID:" Margin="0,0,12,6" />
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedModel.Id, Mode=OneWay, TargetNullValue=''}" TextWrapping="Wrap" />
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Compute Target:" Margin="0,0,12,6" />
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedModel.ComputeTarget, Mode=OneWay, TargetNullValue=''}" />
+        <!-- Header / status -->
+        <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,10">
+            <TextBlock Text="PLAI" FontSize="22" FontWeight="SemiBold"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Min RAM (GB):" Margin="0,0,12,6" />
-                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedModel.MinRamGb, Mode=OneWay, TargetNullValue=''}" />
+            <TextBlock Text="{Binding DetectedHardwareSummary}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding SelectionReason}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding StatusText}" Margin="0,6,0,0" FontStyle="Italic" TextWrapping="Wrap"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Min VRAM (GB):" Margin="0,0,12,6" />
-                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedModel.MinVramGb, Mode=OneWay, TargetNullValue=''}" />
+            <Expander Header="Model info" IsExpanded="False" Margin="0,10,0,0">
+                <Border Padding="8" BorderBrush="#CCCCCC" BorderThickness="1" CornerRadius="4">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Quantization:" Margin="0,0,12,6" />
-                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedModel.Quantization, Mode=OneWay, TargetNullValue=''}" />
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Id:" Margin="0,0,8,4"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedModel.Id}" TextWrapping="Wrap"/>
 
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Download URL:" Margin="0,0,12,0" />
-                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedModel.DownloadUri, Mode=OneWay, TargetNullValue=''}" TextWrapping="Wrap" />
-            </Grid>
-        </Expander>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Name:" Margin="0,0,8,4"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedModel.Name}" TextWrapping="Wrap"/>
 
-        <Button Content="Click" Width="120" Height="32" />
-    </StackPanel>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Compute:" Margin="0,0,8,4"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedModel.ComputeTarget}" TextWrapping="Wrap"/>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Quant:" Margin="0,0,8,4"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedModel.Quantization}" TextWrapping="Wrap"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Min RAM:" Margin="0,0,8,4"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedModel.MinRamGb}" TextWrapping="Wrap"/>
+
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Min VRAM:" Margin="0,0,8,0"/>
+                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedModel.MinVramGb}" TextWrapping="Wrap"/>
+                    </Grid>
+                </Border>
+            </Expander>
+        </StackPanel>
+
+        <!-- Startup download progress -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,10" Visibility="{Binding IsStartupBusy, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="{Binding DownloadDetail}" Margin="0,0,0,6" TextWrapping="Wrap"/>
+            <ProgressBar Height="16"
+                         Minimum="0"
+                         Maximum="100"
+                         Value="{Binding DownloadProgressPercent, Mode=OneWay}"
+                         IsIndeterminate="{Binding IsDownloadProgressIndeterminate, Mode=OneWay}"/>
+        </StackPanel>
+
+        <!-- Chat transcript -->
+        <ListBox Grid.Row="2" ItemsSource="{Binding Messages}" Margin="0,0,0,10">
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type models:ChatMessage}">
+                    <Border Padding="8" Margin="0,0,0,8" CornerRadius="6" BorderBrush="#DDDDDD" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Role}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="{Binding Content}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- Input -->
+        <DockPanel Grid.Row="3" LastChildFill="True">
+            <StackPanel DockPanel.Dock="Right" Orientation="Vertical" Margin="10,0,0,0">
+                <Button Content="Send" Width="100" Height="32" Click="Send_Click" IsEnabled="{Binding IsInputEnabled}"/>
+                <Button Content="Cancel" Width="100" Height="32" Margin="0,8,0,0"
+                        Click="Cancel_Click"
+                        Visibility="{Binding IsCancelVisible, Converter={StaticResource BoolToVis}}"/>
+            </StackPanel>
+
+            <TextBox x:Name="InputTextBox"
+                     Text="{Binding UserInputText, UpdateSourceTrigger=PropertyChanged}"
+                     AcceptsReturn="True"
+                     VerticalScrollBarVisibility="Auto"
+                     Height="80"
+                     IsEnabled="{Binding IsInputEnabled}"
+                     KeyDown="InputTextBox_KeyDown"/>
+        </DockPanel>
+    </Grid>
 </Window>

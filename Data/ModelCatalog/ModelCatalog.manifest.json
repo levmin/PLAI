@@ -5,7 +5,7 @@
   "models": [
     {
       "id": "phi-3_5-mini-instruct-cpu-int4-awq",
-      "displayName": "Phi-3.5-mini",
+      "name": "Phi-3.5-mini",
       "parametersBillions": 3.8,
       "computeTarget": "cpu",
       "minRamGb": 8,
@@ -15,7 +15,7 @@
     },
     {
       "id": "phi-3_5-mini-instruct-gpu-int4-awq",
-      "displayName": "Phi-3.5-mini",
+      "name": "Phi-3.5-mini",
       "parametersBillions": 3.8,
       "computeTarget": "gpu",
       "minRamGb": 8,
@@ -25,7 +25,7 @@
     },
     {
       "id": "phi-4-mini-instruct-cpu-int4-rtn",
-      "displayName": "Phi-4-mini",
+      "name": "Phi-4-mini",
       "parametersBillions": 3.8,
       "computeTarget": "cpu",
       "minRamGb": 16,
@@ -35,7 +35,7 @@
     },
     {
       "id": "phi-4-mini-instruct-gpu-int4-rtn",
-      "displayName": "Phi-4-mini",
+      "name": "Phi-4-mini",
       "parametersBillions": 3.8,
       "computeTarget": "gpu",
       "minRamGb": 16,
@@ -45,7 +45,7 @@
     },
     {
       "id": "phi-4-base-cpu-int4-rtn",
-      "displayName": "Phi-4",
+      "name": "Phi-4",
       "parametersBillions": 14,
       "computeTarget": "cpu",
       "minRamGb": 32,
@@ -55,7 +55,7 @@
     },
     {
       "id": "phi-4-base-gpu-int4-rtn",
-      "displayName": "Phi-4",
+      "name": "Phi-4",
       "parametersBillions": 14,
       "computeTarget": "gpu",
       "minRamGb": 32,

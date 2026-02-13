@@ -31,7 +31,7 @@ namespace PLAI.Models
         public string Name { get; set; } = string.Empty;
 
         [JsonPropertyName("displayName")]
-        public string Name { get; set; } = string.Empty;
+        public string displayName { get; set; } = string.Empty;
 
         [JsonPropertyName("computeTarget")]
         public string ComputeTarget { get; set; } = string.Empty;

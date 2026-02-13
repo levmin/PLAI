@@ -78,26 +78,43 @@
 
         <!-- Chat transcript -->
         <ListBox Grid.Row="2" ItemsSource="{Binding Messages}" Margin="0,0,0,10">
+            <!-- Make transcript feel like a log, not a selectable list -->
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ListBox.ItemContainerStyle>
+
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type models:ChatMessage}">
-                    <Border Padding="8" Margin="0,0,0,8" CornerRadius="6" BorderBrush="#DDDDDD" BorderThickness="1">
-                        <StackPanel>
-                            <TextBlock Text="{Binding Role}" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <TextBlock Text="{Binding Content}" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
+                    <!-- No borders around messages (per UX requirement) -->
+                    <StackPanel Margin="0,0,0,10">
+                        <TextBlock Text="{Binding Role}" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                        <TextBlock Text="{Binding Content}" TextWrapping="Wrap"/>
+                    </StackPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <!-- Input -->
+        <!-- Input (Enter sends; no Send button) -->
         <DockPanel Grid.Row="3" LastChildFill="True">
-            <StackPanel DockPanel.Dock="Right" Orientation="Vertical" Margin="10,0,0,0">
-                <Button Content="Send" Width="100" Height="32" Click="Send_Click" IsEnabled="{Binding IsInputEnabled}"/>
-                <Button Content="Cancel" Width="100" Height="32" Margin="0,8,0,0"
-                        Click="Cancel_Click"
-                        Visibility="{Binding IsCancelVisible, Converter={StaticResource BoolToVis}}"/>
-            </StackPanel>
+            <Button DockPanel.Dock="Right"
+                    Content="Cancel"
+                    Width="100"
+                    Height="32"
+                    Margin="10,0,0,0"
+                    Click="Cancel_Click"
+                    Visibility="{Binding IsCancelVisible, Converter={StaticResource BoolToVis}}"/>
 
             <TextBox x:Name="InputTextBox"
                      Text="{Binding UserInputText, UpdateSourceTrigger=PropertyChanged}"

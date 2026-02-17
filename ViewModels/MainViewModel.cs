@@ -13,6 +13,11 @@ namespace PLAI.ViewModels
 {
     public sealed class MainViewModel : INotifyPropertyChanged
     {
+        // TEMPORARY PERFORMANCE OVERRIDE (user-requested):
+        // Force a smaller CPU model regardless of detected hardware.
+        // Remove once performance work / GPU EP is implemented.
+        private const string ForcedModelId = "phi-3_5-mini-instruct-cpu-int4-awq";
+
         private readonly ModelCatalogService _catalogService = new ModelCatalogService();
         
         private readonly ModelDownloadService _downloadService = new ModelDownloadService();
@@ -80,6 +85,7 @@ namespace PLAI.ViewModels
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(IsCancelVisible));
                     OnPropertyChanged(nameof(IsInputEnabled));
+                    OnPropertyChanged(nameof(CanSend));
                 }
             }
         }
@@ -95,6 +101,7 @@ namespace PLAI.ViewModels
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(IsCancelVisible));
                     OnPropertyChanged(nameof(IsInputEnabled));
+                    OnPropertyChanged(nameof(CanSend));
                 }
             }
         }
@@ -102,6 +109,8 @@ namespace PLAI.ViewModels
         public bool IsChatReady { get; private set; }
 
         public bool IsInputEnabled => IsChatReady && !IsStartupBusy && !IsGenerating;
+
+        public bool CanSend => IsInputEnabled && !string.IsNullOrWhiteSpace(UserInputText);
 
         public bool IsCancelVisible => IsStartupBusy || IsGenerating;
 
@@ -132,6 +141,7 @@ namespace PLAI.ViewModels
                 {
                     _userInputText = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(CanSend));
                 }
             }
         }
@@ -217,6 +227,7 @@ namespace PLAI.ViewModels
                 IsChatReady = true;
                 OnPropertyChanged(nameof(IsChatReady));
                 OnPropertyChanged(nameof(IsInputEnabled));
+                OnPropertyChanged(nameof(CanSend));
             }
             catch (OperationCanceledException)
             {
@@ -368,7 +379,7 @@ namespace PLAI.ViewModels
             {
                 try { AppLogger.Info($"Selected model {chosen.Id}"); } catch { }
                 SelectionReason =
-                    $"Selected by capability match (RAM {capabilities.AvailableRamGb:0.0} GB, VRAM {capabilities.AvailableVramGb:0.0} GB).";
+                    "Selected by temporary forced model override (ignoring detected hardware).";
 
                 _stateStore.SaveSelectedModelId(chosen.Id);
             }
@@ -379,6 +390,13 @@ namespace PLAI.ViewModels
         {
             if (!_stateStore.TryLoadSelectedModelId(out var savedId) || string.IsNullOrWhiteSpace(savedId))
                 return false;
+
+            // TEMPORARY OVERRIDE: ignore any previously persisted selection that is not the forced model.
+            if (!string.Equals(savedId, ForcedModelId, StringComparison.Ordinal))
+            {
+                _stateStore.Clear();
+                return false;
+            }
 
             // Preserve v1 behavior: if the alias file is missing, treat as no state.
             if (!_downloadService.IsModelComplete(savedId))
@@ -405,7 +423,7 @@ namespace PLAI.ViewModels
             }
 
             SelectedModel = restored;
-            SelectionReason = "Restored previous selection (deterministic)";
+            SelectionReason = "Restored previous selection (temporary forced model)";
 
             return true;
         }
@@ -413,7 +431,7 @@ namespace PLAI.ViewModels
         private static void InformUserAboutSelection(ModelDescriptor selected)
         {
             var msg =
-                $"PLAI selected a model deterministically based on detected hardware.\n\n" +
+                $"PLAI is temporarily forcing a smaller CPU model for performance.\n\n" +
                 $"Selected model:\n  {selected.Name}\n\n" +
                 $"The required model files will now be downloaded.\n\n" +
                 $"(No choices here — OK continues.)";

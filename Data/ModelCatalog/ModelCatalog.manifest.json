@@ -1,11 +1,12 @@
 {
   "manifestVersion": "1.0",
   "generatedFrom": "Models.xlsx",
-  "generatedOn": "2026-02-11",
+  "generatedOn": "2026-02-13",
   "models": [
     {
       "id": "phi-3_5-mini-instruct-cpu-int4-awq",
-      "name": "Phi-3.5-mini-instruct-onnx (cpu-int4-awq)",
+      "name": "Phi-3.5-mini",
+      "parametersBillions": 3.8,
       "computeTarget": "cpu",
       "minRamGb": 8,
       "minVramGb": 0,
@@ -14,7 +15,8 @@
     },
     {
       "id": "phi-3_5-mini-instruct-gpu-int4-awq",
-      "name": "Phi-3.5-mini-instruct-onnx (gpu-int4-awq)",
+      "name": "Phi-3.5-mini",
+      "parametersBillions": 3.8,
       "computeTarget": "gpu",
       "minRamGb": 8,
       "minVramGb": 4,
@@ -23,7 +25,8 @@
     },
     {
       "id": "phi-4-mini-instruct-cpu-int4-rtn",
-      "name": "Phi-4-mini-instruct-onnx (cpu-int4-rtn)",
+      "name": "Phi-4-mini",
+      "parametersBillions": 3.8,
       "computeTarget": "cpu",
       "minRamGb": 16,
       "minVramGb": 0,
@@ -32,7 +35,8 @@
     },
     {
       "id": "phi-4-mini-instruct-gpu-int4-rtn",
-      "name": "Phi-4-mini-instruct-onnx (gpu-int4-rtn)",
+      "name": "Phi-4-mini",
+      "parametersBillions": 3.8,
       "computeTarget": "gpu",
       "minRamGb": 16,
       "minVramGb": 6,
@@ -41,7 +45,8 @@
     },
     {
       "id": "phi-4-base-cpu-int4-rtn",
-      "name": "Phi-4-onnx (cpu-int4-rtn)",
+      "name": "Phi-4",
+      "parametersBillions": 14,
       "computeTarget": "cpu",
       "minRamGb": 32,
       "minVramGb": 0,
@@ -50,7 +55,8 @@
     },
     {
       "id": "phi-4-base-gpu-int4-rtn",
-      "name": "Phi-4-onnx (gpu-int4-rtn)",
+      "name": "Phi-4",
+      "parametersBillions": 14,
       "computeTarget": "gpu",
       "minRamGb": 32,
       "minVramGb": 12,

@@ -9,6 +9,11 @@ namespace PLAI.Services
     /// </summary>
     public static class ModelSelectionService
     {
+        // TEMPORARY PERFORMANCE OVERRIDE (user-requested):
+        // Always pick Phi-3.5-mini CPU INT4 AWQ regardless of detected hardware.
+        // Remove this once performance work / GPU EP is in place.
+        private const string ForcedModelId = "phi-3_5-mini-instruct-cpu-int4-awq";
+
         /// <summary>
         /// Selects the best model from the provided list according to the algorithm:
         /// Filter: MinRamGb <= AvailableRamGb && (MinVramGb == null || MinVramGb <= AvailableVramGb)
@@ -20,6 +25,16 @@ namespace PLAI.Services
             if (capabilities is null || models is null)
             {
                 return null;
+            }
+
+            // TEMPORARY OVERRIDE: forced model selection.
+            // Deterministic and side-effect-free.
+            foreach (var m in models)
+            {
+                if (m is not null && string.Equals(m.Id, ForcedModelId, System.StringComparison.Ordinal))
+                {
+                    return m;
+                }
             }
 
             ModelDescriptor? best = null;

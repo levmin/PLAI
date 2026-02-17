@@ -43,6 +43,19 @@ namespace PLAI.Services
             lock (s_handleLock)
             {
                 if (s_handle is not null) return;
+                // Performance tuning (CPU-only): encourage ORT to use more threads.
+                // These environment variables are read by underlying runtimes and are safe no-ops if unsupported.
+                try
+                {
+                    var threads = Math.Max(1, Environment.ProcessorCount);
+                    Environment.SetEnvironmentVariable("OMP_NUM_THREADS", threads.ToString());
+                    Environment.SetEnvironmentVariable("ORT_NUM_THREADS", threads.ToString());
+                    Environment.SetEnvironmentVariable("ORT_INTER_OP_NUM_THREADS", "1");
+                }
+                catch
+                {
+                    // Best-effort only.
+                }
                 // If this throws (e.g., missing VC++ runtime / native deps), let the caller handle it.
                 s_handle = new OgaHandle();
             }

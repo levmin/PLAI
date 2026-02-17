@@ -5,70 +5,57 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:PLAI.ViewModels"
         xmlns:models="clr-namespace:PLAI.Models"
+        xmlns:conv="clr-namespace:PLAI.Converters"
         mc:Ignorable="d"
         Title="PLAI" Height="720" Width="1100" MinHeight="520" MinWidth="820">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis"/>
+        <conv:MultiplyConverter x:Key="MultiplyConverter"/>
+
+        <!-- ChatGPT-like circular icon button (send / stop) -->
+        <Style x:Key="CircleIconButton" TargetType="Button">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#D8D8D8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="16">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="#BEBEBE"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="12">
+    <Grid Margin="0">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header / status -->
-        <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,10">
-            <TextBlock Text="PLAI" FontSize="22" FontWeight="SemiBold"/>
-
-            <TextBlock Text="{Binding DetectedHardwareSummary}" Margin="0,4,0,0" TextWrapping="Wrap"/>
-            <TextBlock Text="{Binding SelectionReason}" Margin="0,2,0,0" TextWrapping="Wrap"/>
-            <TextBlock Text="{Binding StatusText}" Margin="0,6,0,0" FontStyle="Italic" TextWrapping="Wrap"/>
-
-            <Expander Header="Model info" IsExpanded="False" Margin="0,10,0,0">
-                <Border Padding="8" BorderBrush="#CCCCCC" BorderThickness="1" CornerRadius="4">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Id:" Margin="0,0,8,4"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedModel.Id}" TextWrapping="Wrap"/>
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Name:" Margin="0,0,8,4"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedModel.Name}" TextWrapping="Wrap"/>
-
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Compute:" Margin="0,0,8,4"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedModel.ComputeTarget}" TextWrapping="Wrap"/>
-
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Quant:" Margin="0,0,8,4"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedModel.Quantization}" TextWrapping="Wrap"/>
-
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Min RAM:" Margin="0,0,8,4"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedModel.MinRamGb}" TextWrapping="Wrap"/>
-
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Min VRAM:" Margin="0,0,8,0"/>
-                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedModel.MinVramGb}" TextWrapping="Wrap"/>
-                    </Grid>
-                </Border>
-            </Expander>
-        </StackPanel>
-
         <!-- Startup download progress -->
-        <StackPanel Grid.Row="1" Margin="0,0,0,10" Visibility="{Binding IsStartupBusy, Converter={StaticResource BoolToVis}}">
-            <TextBlock Text="{Binding DownloadDetail}" Margin="0,0,0,6" TextWrapping="Wrap"/>
+        <StackPanel Grid.Row="0" Margin="16,16,16,0" Visibility="{Binding IsStartupBusy, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="{Binding DownloadDetail}" Margin="0,0,0,8" TextWrapping="Wrap"/>
             <ProgressBar Height="16"
                          Minimum="0"
                          Maximum="100"
@@ -77,52 +64,101 @@
         </StackPanel>
 
         <!-- Chat transcript -->
-        <ListBox Grid.Row="2" ItemsSource="{Binding Messages}" Margin="0,0,0,10">
-            <!-- Make transcript feel like a log, not a selectable list -->
+        <ListBox x:Name="TranscriptList"
+                 Grid.Row="1"
+                 ItemsSource="{Binding Messages}"
+                 Margin="16,16,16,8"
+                 BorderThickness="0"
+                 Background="Transparent"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
-                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="IsHitTestVisible" Value="False"/>
                     <Setter Property="Padding" Value="0"/>
                     <Setter Property="Margin" Value="0"/>
-                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="BorderThickness" Value="0"/>
                     <Setter Property="Background" Value="Transparent"/>
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                    <Style.Triggers>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="Transparent"/>
-                        </Trigger>
-                    </Style.Triggers>
                 </Style>
             </ListBox.ItemContainerStyle>
-
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type models:ChatMessage}">
-                    <!-- No borders around messages (per UX requirement) -->
-                    <StackPanel Margin="0,0,0,10">
-                        <TextBlock Text="{Binding Role}" FontWeight="SemiBold" Margin="0,0,0,2"/>
-                        <TextBlock Text="{Binding Content}" TextWrapping="Wrap"/>
-                    </StackPanel>
+                    <Grid Margin="0,0,0,12">
+                        <!-- ChatGPT-style bubbles: assistant left, user right; both constrained width. -->
+                        <Border Padding="14,10"
+                                CornerRadius="16"
+                                BorderThickness="0"
+                                MaxWidth="{Binding ElementName=TranscriptList, Path=ActualWidth, Converter={StaticResource MultiplyConverter}, ConverterParameter=0.62}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#F3F3F3"/>
+                                    <Setter Property="HorizontalAlignment" Value="Left"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                            <Setter Property="Background" Value="#E8F0FE"/>
+                                            <Setter Property="HorizontalAlignment" Value="Right"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+
+                            <TextBlock Text="{Binding Content}" TextWrapping="Wrap" FontSize="14"/>
+                        </Border>
+                    </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <!-- Input (Enter sends; no Send button) -->
-        <DockPanel Grid.Row="3" LastChildFill="True">
-            <Button DockPanel.Dock="Right"
-                    Content="Cancel"
-                    Width="100"
-                    Height="32"
-                    Margin="10,0,0,0"
-                    Click="Cancel_Click"
-                    Visibility="{Binding IsCancelVisible, Converter={StaticResource BoolToVis}}"/>
+        <!-- Input (ChatGPT-like): full width, centered surface, send button inside. -->
+        <Grid Grid.Row="2" Margin="16,0,16,16">
+            <Border Background="White"
+                    BorderBrush="#D8D8D8"
+                    BorderThickness="1"
+                    CornerRadius="20"
+                    Padding="14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-            <TextBox x:Name="InputTextBox"
-                     Text="{Binding UserInputText, UpdateSourceTrigger=PropertyChanged}"
-                     AcceptsReturn="True"
-                     VerticalScrollBarVisibility="Auto"
-                     Height="80"
-                     IsEnabled="{Binding IsInputEnabled}"
-                     KeyDown="InputTextBox_KeyDown"/>
-        </DockPanel>
+                    <TextBox x:Name="InputTextBox"
+                             Grid.Column="0"
+                             Text="{Binding UserInputText, UpdateSourceTrigger=PropertyChanged}"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             MinHeight="44"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Padding="0"
+                             IsEnabled="{Binding IsInputEnabled}"
+                             PreviewKeyDown="InputTextBox_PreviewKeyDown"/>
+
+                    <Grid Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Bottom">
+                        <Button Style="{StaticResource CircleIconButton}"
+                                Click="Send_Click"
+                                IsEnabled="{Binding CanSend}"
+                                Visibility="{Binding IsCancelVisible, Converter={StaticResource InverseBoolToVis}}">
+                            <Grid Width="32" Height="32">
+                                <Ellipse Fill="Black"/>
+                                <Path Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      Data="M 16 9 L 16 21 M 10 15 L 16 9 L 22 15"/>
+                            </Grid>
+                        </Button>
+
+                        <Button Style="{StaticResource CircleIconButton}"
+                                Click="Cancel_Click"
+                                Visibility="{Binding IsCancelVisible, Converter={StaticResource BoolToVis}}">
+                            <Grid Width="32" Height="32">
+                                <Ellipse Fill="Black"/>
+                                <Rectangle Width="12" Height="12" Fill="White" RadiusX="2" RadiusY="2"/>
+                            </Grid>
+                        </Button>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

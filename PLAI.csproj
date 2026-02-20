@@ -7,6 +7,7 @@
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\PLAI.ico</ApplicationIcon>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,8 +16,7 @@
 
   <ItemGroup>
     <!-- Deterministic, reviewable model catalog (single source of truth) -->
-    <EmbeddedResource Include="Data\ModelCatalog\ModelCatalog.manifest.json"
-                      LogicalName="PLAI.ModelCatalog.manifest.json" />
+    <EmbeddedResource Include="Data\ModelCatalog\ModelCatalog.manifest.json" LogicalName="PLAI.ModelCatalog.manifest.json" />
   </ItemGroup>
 
 </Project>

@@ -148,7 +148,21 @@ namespace PLAI.ViewModels
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public async Task StartupAsync(IHardwareInfoProvider hardwareProvider)
+        /// <summary>
+        /// Performs deterministic detection + selection and reports whether a download is required.
+        /// This method shows no UI and performs no network/model work.
+        /// </summary>
+        public bool PreflightRequiresDownload(IHardwareInfoProvider hardwareProvider)
+        {
+            RunDetectionAndSelection(hardwareProvider);
+
+            if (SelectedModel is null)
+                return false;
+
+            return !_downloadService.IsModelReadyForInference(SelectedModel.Id);
+        }
+
+        public async Task StartupAsync(IHardwareInfoProvider hardwareProvider, bool selectionAlreadyDone = false)
         {
             _startupCts?.Cancel();
             _startupCts?.Dispose();
@@ -162,11 +176,16 @@ namespace PLAI.ViewModels
             IsDownloadProgressIndeterminate = true;
             DownloadDetail = string.Empty;
 
+            PLAI.DownloadWindow? downloadWindow = null;
+
             try
             {
                 await Task.Yield();
 
-                RunDetectionAndSelection(hardwareProvider);
+                if (!selectionAlreadyDone)
+                {
+                    RunDetectionAndSelection(hardwareProvider);
+                }
 
                 if (SelectedModel is null)
                 {
@@ -180,10 +199,29 @@ namespace PLAI.ViewModels
 
                 if (!_downloadService.IsModelReadyForInference(modelId))
                 {
-                    InformUserAboutSelection(SelectedModel);
+                    // FRE Step 1: ask permission to download (OK/Cancel). Cancel stops FRE.
+                    var modelName = SelectedModel.Name;
+                    var answer = MessageBox.Show(
+                        $"PLAI needs to download {modelName}.\n\nDo you want to continue?",
+                        "PLAI",
+                        MessageBoxButton.OKCancel,
+                        MessageBoxImage.Information);
 
-                    StatusText = "Downloading model files...";
+                    if (answer != MessageBoxResult.OK)
+                    {
+                        StatusText = "Cancelled.";
+                        Application.Current.Shutdown();
+                        return;
+                    }
+
+                    // FRE Step 2: show a dedicated download window with progress.
+                    StatusText = $"Downloading {modelName}...";
                     IsDownloadProgressIndeterminate = true;
+                    DownloadProgressPercent = 0;
+                    DownloadDetail = string.Empty;
+
+                    downloadWindow = new PLAI.DownloadWindow(this, modelName);
+                    downloadWindow.Show();
 
                     var progress = new Progress<ModelDownloadProgress>(p =>
                     {
@@ -207,7 +245,15 @@ namespace PLAI.ViewModels
                     {
                         // Deterministic cleanup: clear persisted selection and exit.
                         _stateStore.Clear();
-                        StatusText = "Download cancelled or failed. Exiting.";
+
+                        if (ct.IsCancellationRequested)
+                        {
+                            StatusText = "Cancelled.";
+                            Application.Current.Shutdown();
+                            return;
+                        }
+
+                        StatusText = "Download failed. Exiting.";
                         MessageBox.Show("Model download did not complete.\n\nPLAI will exit.", "PLAI", MessageBoxButton.OK, MessageBoxImage.Warning);
                         Application.Current.Shutdown();
                         return;
@@ -256,6 +302,8 @@ namespace PLAI.ViewModels
             }
             finally
             {
+                try { downloadWindow?.CloseFromCode(); } catch { }
+
                 IsStartupBusy = false;
             }
         }
@@ -310,9 +358,13 @@ namespace PLAI.ViewModels
             {
                 var prompt = BuildPhiPromptFromConversation(Messages, ignoreLastAssistantIfEmpty: true);
 
+                // Build the assistant text efficiently (avoid repeated string concatenation).
+                var assistantBuffer = new StringBuilder();
+
                 var chunkProgress = new Progress<string>(chunk =>
                 {
-                    assistantMsg.Content += chunk;
+                    assistantBuffer.Append(chunk);
+                    assistantMsg.Content = assistantBuffer.ToString();
                 });
 
                 // Keep deterministic generation for now (greedy).
@@ -325,14 +377,16 @@ namespace PLAI.ViewModels
 
                 _ = await svc.GenerateAsync(
                     prompt: prompt,
-                    maxLength: 1024,
+                    // Use the model's full context window (no artificial output cap).
+                    // GenAiInferenceService will default to the model's ContextLength when 0 is passed.
+                    maxLength: 0,
                     doSample: false,
                     onTextChunk: chunkProgress,
                     cancellationToken: _generationCts.Token).ConfigureAwait(true);
             }
             catch (OperationCanceledException)
             {
-                assistantMsg.Content += "\n\n[Cancelled]";
+                // Keep partial text; do not inject cancellation markers into the transcript.
             }
             catch (Exception ex)
             {
@@ -427,18 +481,6 @@ namespace PLAI.ViewModels
 
             return true;
         }
-
-        private static void InformUserAboutSelection(ModelDescriptor selected)
-        {
-            var msg =
-                $"PLAI is temporarily forcing a smaller CPU model for performance.\n\n" +
-                $"Selected model:\n  {selected.Name}\n\n" +
-                $"The required model files will now be downloaded.\n\n" +
-                $"(No choices here — OK continues.)";
-
-            MessageBox.Show(msg, "PLAI", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
         private static string BuildPhiPromptFromConversation(ObservableCollection<ChatMessage> messages, bool ignoreLastAssistantIfEmpty)
         {
             // Phi chat format (minimal):

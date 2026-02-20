@@ -364,11 +364,12 @@ namespace PLAI.Services
 
             var primary = candidates[0].FullName;
 
-            // Prefer a hard link to avoid duplication, fall back to rename.
+            // Prefer a hard link to avoid duplication, fall back to copy.
             if (!TryCreateHardLink(aliasPath, primary))
             {
-                // As a last resort, move/rename to satisfy the v1 contract.
-                File.Move(primary, aliasPath, overwrite: true);
+                // As a last resort, copy to satisfy the v1 contract.
+                // Do NOT move/rename: GenAI config files may reference the original filename.
+                File.Copy(primary, aliasPath, overwrite: true);
             }
 
             var aliasFi = new FileInfo(aliasPath);

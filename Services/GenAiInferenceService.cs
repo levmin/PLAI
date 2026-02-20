@@ -16,8 +16,19 @@ namespace PLAI.Services
 
         private Model? _model;
         private Tokenizer? _tokenizer;
+        // TEMP (v1.2.x): PLAI currently forces Phi-3.5-mini-instruct CPU INT4 AWQ.
+        // Keep context length deterministic and avoid relying on GenAI config APIs that vary by version.
+        // Phi-3.5 supports a 4K context window.
+        private const int DefaultContextLength = 4096;
+        private int _contextLength = DefaultContextLength;
 
         public bool IsLoaded => _model is not null && _tokenizer is not null;
+
+        /// <summary>
+        /// The model's context length (max sequence length) as reported by ORT GenAI.
+        /// Valid after <see cref="LoadModelAsync"/> completes.
+        /// </summary>
+        public int ContextLength => _contextLength;
 
         public async Task LoadModelAsync(string modelFolder, CancellationToken cancellationToken)
         {
@@ -34,6 +45,7 @@ namespace PLAI.Services
 
                 _model = new Model(modelFolder);
                 _tokenizer = new Tokenizer(_model);
+                _contextLength = DefaultContextLength;
             }, cancellationToken).ConfigureAwait(false);
         }
 
@@ -103,16 +115,40 @@ namespace PLAI.Services
                 }
 
                 using var tokenizerStream = _tokenizer.CreateStream();
-                var sequences = _tokenizer.Encode(prompt);
 
                 using var generatorParams = new GeneratorParams(_model);
-                generatorParams.SetSearchOption("max_length", maxLength);
+                // max_length is prompt + generated tokens. If caller passes 0/negative,
+                // default to the model's context length.
+                var effectiveMax = maxLength > 0 ? maxLength : (_contextLength > 0 ? _contextLength : 4096);
+                generatorParams.SetSearchOption("max_length", effectiveMax);
                 generatorParams.SetSearchOption("do_sample", doSample);
+
+                // Ensure the prompt leaves some headroom for generation. Without this, long chats
+                // can cause overflow errors or produce no output.
+                var promptBudget = ComputePromptBudget(effectiveMax);
+                var promptToUse = ClipPromptToBudgetDeterministically(prompt, promptBudget);
+
+                // Best-effort: if we can measure token count, tighten the clip until within budget.
+                // This remains deterministic (always keeps the tail).
+                var sequences = _tokenizer.Encode(promptToUse);
+                var tokenCount = TryGetFirstSequenceLength(sequences);
+                for (int i = 0; i < 6 && tokenCount > 0 && tokenCount > promptBudget && promptToUse.Length > 256; i++)
+                {
+                    // Reduce proportionally with a safety factor.
+                    var targetChars = (int)Math.Max(256, promptToUse.Length * (double)promptBudget / tokenCount * 0.90);
+                    promptToUse = promptToUse.Substring(promptToUse.Length - targetChars, targetChars);
+                    sequences = _tokenizer.Encode(promptToUse);
+                    tokenCount = TryGetFirstSequenceLength(sequences);
+                }
 
                 using var generator = new Generator(_model, generatorParams);
                 generator.AppendTokenSequences(sequences);
 
                 var sb = new StringBuilder();
+
+                // Batch UI updates to reduce dispatcher/INotify overhead while still feeling "streamy".
+                var chunkBuffer = new StringBuilder();
+                long lastFlush = Environment.TickCount64;
 
                 while (!generator.IsDone())
                 {
@@ -128,12 +164,82 @@ namespace PLAI.Services
                     if (!string.IsNullOrEmpty(text))
                     {
                         sb.Append(text);
-                        onTextChunk?.Report(text);
+                        if (onTextChunk is not null)
+                        {
+                            chunkBuffer.Append(text);
+
+                            var now = Environment.TickCount64;
+                            if (chunkBuffer.Length >= 64 || (now - lastFlush) >= 50)
+                            {
+                                onTextChunk.Report(chunkBuffer.ToString());
+                                chunkBuffer.Clear();
+                                lastFlush = now;
+                            }
+                        }
                     }
+                }
+
+                // Flush any remaining buffered text.
+                if (onTextChunk is not null && chunkBuffer.Length > 0)
+                {
+                    onTextChunk.Report(chunkBuffer.ToString());
                 }
 
                 return sb.ToString();
             }, cancellationToken).ConfigureAwait(false);
+        }
+
+        private static int ComputePromptBudget(int effectiveMax)
+        {
+            // Leave deterministic headroom for the model to respond.
+            // Keep it conservative because we no longer cap output tokens.
+            // Minimum budget of 64 tokens.
+            var reserve = Math.Min(256, Math.Max(128, effectiveMax / 6));
+            var budget = effectiveMax - reserve;
+            return Math.Max(64, budget);
+        }
+
+        private static string ClipPromptToBudgetDeterministically(string prompt, int promptBudgetTokens)
+        {
+            // Deterministic clipping strategy: keep the tail of the prompt.
+            // Token-perfect clipping is not always available via public GenAI APIs,
+            // so we use a conservative character-based clip that is stable and safe.
+
+            // Approximate 1 token ~= 4 chars. Use a safety factor.
+            var charLimit = (int)Math.Max(512, promptBudgetTokens * 4.0);
+            if (prompt.Length <= charLimit) return prompt;
+
+            // Keep the most recent content.
+            return prompt.Substring(prompt.Length - charLimit, charLimit);
+        }
+
+        private static int TryGetFirstSequenceLength(object sequences)
+        {
+            try
+            {
+                var t = sequences.GetType();
+                // Common pattern: Sequences.GetSequence(int)
+                var getSeq = t.GetMethod("GetSequence", new[] { typeof(int) });
+                if (getSeq is null) return 0;
+                var seqObj = getSeq.Invoke(sequences, new object[] { 0 });
+                if (seqObj is null) return 0;
+
+                if (seqObj is int[] arr) return arr.Length;
+
+                var seqType = seqObj.GetType();
+                var lenProp = seqType.GetProperty("Length") ?? seqType.GetProperty("Count");
+                if (lenProp is not null && lenProp.PropertyType == typeof(int))
+                {
+                    return (int)lenProp.GetValue(seqObj)!;
+                }
+
+                if (seqObj is System.Collections.ICollection col) return col.Count;
+            }
+            catch
+            {
+                // Best-effort only.
+            }
+            return 0;
         }
 
         public void Dispose()

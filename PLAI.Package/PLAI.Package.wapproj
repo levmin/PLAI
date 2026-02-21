@@ -53,7 +53,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PLAI.csproj">
-      <TrustLevel>Partial</TrustLevel>
+      <TrustLevel>Full</TrustLevel>
     </ProjectReference>
   </ItemGroup>
 </Project>

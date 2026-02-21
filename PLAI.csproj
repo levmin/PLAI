@@ -5,18 +5,36 @@
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon>Assets\PLAI.ico</ApplicationIcon>
-    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+      <ApplicationIcon>Assets\PLAI.ico</ApplicationIcon>      
+      <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+      <Platforms>x64</Platforms>
+
+      <!-- Force x64 -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <Platforms>x64</Platforms>
+
+    <!-- MSIX Packaging -->
+    <WindowsPackageType>MSIX</WindowsPackageType>
+    <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
+    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+
+    <!-- Output behavior -->
+    <SelfContained>false</SelfContained>
+      <Configurations>Release</Configurations>
+      <ApplicationIcon>Assets\PLAI.ico</ApplicationIcon>
+
+      <!-- ✅ DPI Awareness Manifest -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.12.0" />
+      <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.12.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Deterministic, reviewable model catalog (single source of truth) -->
-    <EmbeddedResource Include="Data\ModelCatalog\ModelCatalog.manifest.json" LogicalName="PLAI.ModelCatalog.manifest.json" />
+      <!-- Deterministic, reviewable model catalog (single source of truth) -->
+      <EmbeddedResource Include="Data\ModelCatalog\ModelCatalog.manifest.json" LogicalName="PLAI.ModelCatalog.manifest.json" />
   </ItemGroup>
 
 </Project>

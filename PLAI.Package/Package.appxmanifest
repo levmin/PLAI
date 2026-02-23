@@ -9,7 +9,7 @@
   <Identity
     Name="PLAIProject.PLAI"
     Publisher="CN=3B7A911D-9624-4D4F-A37C-96B6416A3F2E"
-    Version="1.5.13.0" />
+    Version="1.6.15.0" />
 
   <Properties>
     <DisplayName>PLAI</DisplayName>

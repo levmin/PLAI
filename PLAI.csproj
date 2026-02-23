@@ -17,11 +17,12 @@
     <WindowsPackageType>MSIX</WindowsPackageType>
     <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
     <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <PublishSingleFile>false</PublishSingleFile>
 
     <!-- Output behavior -->
-    <SelfContained>false</SelfContained>
-      <Configurations>Release</Configurations>
-      <ApplicationIcon>Assets\PLAI.ico</ApplicationIcon>
+    <SelfContained>true</SelfContained>
+    <Configurations>Release</Configurations>
+    <ApplicationIcon>Assets\PLAI.ico</ApplicationIcon>
 
       <!-- ✅ DPI Awareness Manifest -->
     <ApplicationManifest>app.manifest</ApplicationManifest>

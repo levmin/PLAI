@@ -15,7 +15,6 @@ PLAI is developed in a fully agentic workflow.
 PLAI is a Windows desktop application (WPF, .NET 10) that demostrates local AI inference using ONNX Runtime.
 On the first launch, PLAI downloads a small ONNX model (Microsoft Phi 3.5 mini). After that, and on subsequent launches, 
 it runs inference locally to generate responses to the user's input.
----
 
 ## Supported Platform
 
